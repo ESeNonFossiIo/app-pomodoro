@@ -23,3 +23,7 @@ Local build needs JDK 17, the Android SDK and Gradle 8.9: `gradle assembleDebug`
 
 - A notification can flash for a moment before it is snoozed.
 - The end-of-session alarm is not exact to the second (`setAndAllowWhileIdle`).
+
+## Dev loop
+
+Uses [kotlin-devkit](https://github.com/comichao/kotlin-devkit): `make debug`, `make phone`, `make logcat`, `make bump PART=patch`, `make help`.
