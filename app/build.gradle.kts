@@ -36,6 +36,9 @@ android {
     kotlinOptions { jvmTarget = "17" }
 }
 
+// APKs are named pomodoro-<versionName>-<variant>.apk
+base.archivesName.set(provider { "pomodoro-${android.defaultConfig.versionName}" })
+
 dependencies {
     implementation(platform("androidx.compose:compose-bom:2024.10.01"))
     implementation("androidx.compose.material3:material3")

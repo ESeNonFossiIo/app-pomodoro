@@ -11,7 +11,7 @@ Minimal Android pomodoro timer that silences notifications while you focus.
 
 ## Install (no store)
 
-1. Push to GitHub. The `build` workflow produces a `pomodoro-debug` artifact containing `app-debug.apk`.
+1. Push to GitHub. The `debug` workflow produces a `pomodoro-debug` artifact containing `pomodoro-<version>-debug.apk`. For a signed release, push a `v<version>` tag: the `release` workflow publishes `pomodoro-<version>-release.apk` as a GitHub Release.
 2. Download it, copy to the phone, and install (allow "install unknown apps").
 3. Open the app and tap **Grant access** to enable notification access.
    On Android 13+, sideloaded apps may first need
