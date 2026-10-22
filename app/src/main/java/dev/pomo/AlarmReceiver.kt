@@ -10,7 +10,7 @@ import android.content.Intent
 class AlarmReceiver : BroadcastReceiver() {
     override fun onReceive(c: Context, intent: Intent) {
         val text = when (Timer.settle(c)) {
-            Phase.FOCUS -> "Focus complete. Take a 5 minute break."
+            Phase.FOCUS -> "Focus complete. Take a ${Timer.currentBreakMinutes(c)} minute break."
             Phase.BREAK -> "Break over."
             else -> return
         }
@@ -25,7 +25,7 @@ class AlarmReceiver : BroadcastReceiver() {
         nm.notify(
             1,
             android.app.Notification.Builder(c, "alerts")
-                .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
+                .setSmallIcon(R.drawable.ic_stat_pomo)
                 .setContentTitle("Pomodoro")
                 .setContentText(text)
                 .setContentIntent(open)
