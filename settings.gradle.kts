@@ -13,3 +13,4 @@ dependencyResolutionManagement {
 }
 rootProject.name = "pomodoro"
 include(":app")
+include(":wear")

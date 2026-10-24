@@ -5,7 +5,8 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 
-enum class Phase { IDLE, FOCUS, BREAK }
+/** DONE: a focus session ended and the timer keeps counting up until the user taps. */
+enum class Phase { IDLE, FOCUS, BREAK, DONE }
 
 /** Timer state lives in SharedPreferences so the UI, alarm and listener all agree. */
 object Timer {
@@ -25,6 +26,7 @@ object Timer {
         val total = when (phase(c)) {
             Phase.FOCUS -> prefs(c).getLong("curMs", 25 * 60_000L)
             Phase.BREAK -> currentBreakMinutes(c) * 60_000L
+            Phase.DONE -> return 1f
             Phase.IDLE -> return 0f
         }
         return (1f - (endAt(c) - now).toFloat() / total).coerceIn(0f, 1f)
@@ -38,8 +40,10 @@ object Timer {
 
     /** Selected focus length, used by the next session. */
     fun minutes(c: Context) = prefs(c).getInt("minutes", 25)
-    fun setMinutes(c: Context, m: Int) =
+    fun setMinutes(c: Context, m: Int) {
         prefs(c).edit().putInt("minutes", m.coerceIn(MIN_MINUTES, MAX_MINUTES)).apply()
+        WearSync.publish(c)
+    }
 
     /** Whether a focus session takes over the screen. On by default. */
     fun fullscreenFocus(c: Context) = prefs(c).getBoolean("fullscreenFocus", true)
@@ -57,15 +61,20 @@ object Timer {
 
     /** Selected break length, used after the next focus session. */
     fun breakMinutes(c: Context) = prefs(c).getInt("breakMinutes", 5)
-    fun setBreakMinutes(c: Context, m: Int) =
+    fun setBreakMinutes(c: Context, m: Int) {
         prefs(c).edit().putInt("breakMinutes", m.coerceIn(MIN_BREAK, MAX_BREAK)).apply()
+        WearSync.publish(c)
+    }
 
     /** Length of the break that follows the session in progress. */
     fun currentBreakMinutes(c: Context) = prefs(c).getInt("curBreakMinutes", 5)
 
     /** Selected category, used by the next session. */
     fun category(c: Context) = prefs(c).getString("category", DEFAULT_CATEGORIES[0])!!
-    fun setCategory(c: Context, name: String) = prefs(c).edit().putString("category", name).apply()
+    fun setCategory(c: Context, name: String) {
+        prefs(c).edit().putString("category", name).apply()
+        WearSync.publish(c)
+    }
 
     fun categories(c: Context): List<String> =
         prefs(c).getString("categories", null)?.split("\n")?.filter { it.isNotBlank() }
@@ -88,6 +97,7 @@ object Timer {
 
     /** Category and length of the session in progress (what gets recorded on completion). */
     fun currentCategory(c: Context) = prefs(c).getString("curCategory", "")!!
+    fun currentFocusMs(c: Context) = prefs(c).getLong("curMs", 25 * 60_000L)
 
     /**
      * Once, the first time the essential apps (calls and messaging) are known, adds them to the
@@ -114,7 +124,7 @@ object Timer {
     @Synchronized
     fun stop(c: Context) {
         if (phase(c) == Phase.FOCUS) {
-            // Time already ran out: settle() records it as completed (and starts the break).
+            // Time already ran out: settle() records it as completed and moves to DONE.
             if (settle(c) != null) return
             val now = System.currentTimeMillis()
             val ms = prefs(c).getLong("curMs", 25 * 60_000L)
@@ -130,24 +140,31 @@ object Timer {
      */
     @Synchronized
     fun settle(c: Context): Phase? {
-        var phase = phase(c)
-        var end = endAt(c)
         val now = System.currentTimeMillis()
-        var ended: Phase? = null
-        while (phase != Phase.IDLE && now >= end) {
-            if (ended == null) ended = phase
-            if (phase == Phase.FOCUS) {
+        val end = endAt(c)
+        when (phase(c)) {
+            Phase.FOCUS -> if (now >= end) {
                 val minutes = (prefs(c).getLong("curMs", 25 * 60_000L) / 60_000).toInt()
                 History.add(c, end, currentCategory(c), minutes, minutes * 60L, true)
-                phase = Phase.BREAK
-                end += currentBreakMinutes(c) * 60_000L
-            } else {
-                phase = Phase.IDLE
-                end = 0
+                // Keep `end` as the focus end time: the overtime counter counts up from it.
+                set(c, Phase.DONE, end)
+                return Phase.FOCUS
             }
+            Phase.BREAK -> if (now >= end) {
+                set(c, Phase.IDLE, 0)
+                return Phase.BREAK
+            }
+            else -> {}
         }
-        if (ended != null) set(c, phase, end)
-        return ended
+        return null
+    }
+
+    /** After a finished focus session: start the break now (not when the focus ended). */
+    @Synchronized
+    fun startBreak(c: Context) {
+        if (phase(c) == Phase.DONE) {
+            set(c, Phase.BREAK, System.currentTimeMillis() + currentBreakMinutes(c) * 60_000L)
+        }
     }
 
     private fun set(c: Context, phase: Phase, end: Long) {
@@ -157,6 +174,8 @@ object Timer {
             c, 0, Intent(c, AlarmReceiver::class.java),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
-        if (end > 0) am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, end, pi) else am.cancel(pi)
+        // DONE has no alarm: its `end` is in the past and it waits for the user.
+        if (end > 0 && phase != Phase.DONE) am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, end, pi) else am.cancel(pi)
+        WearSync.publish(c)
     }
 }

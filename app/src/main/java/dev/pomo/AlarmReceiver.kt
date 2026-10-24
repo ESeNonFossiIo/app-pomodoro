@@ -10,7 +10,7 @@ import android.content.Intent
 class AlarmReceiver : BroadcastReceiver() {
     override fun onReceive(c: Context, intent: Intent) {
         val text = when (Timer.settle(c)) {
-            Phase.FOCUS -> "Focus complete. Take a ${Timer.currentBreakMinutes(c)} minute break."
+            Phase.FOCUS -> "Focus complete. Tap to start your ${Timer.currentBreakMinutes(c)} minute break."
             Phase.BREAK -> "Break over."
             else -> return
         }

@@ -42,10 +42,10 @@ private val DarkColors = darkColorScheme(
 
 enum class ThemeMode { COLOR, MONO }
 
-/** Both modes follow the system light/dark setting. */
+/** Both modes follow the system light/dark setting; `inverted` flips it (a finished focus session). */
 @Composable
-fun PomoTheme(mode: ThemeMode, content: @Composable () -> Unit) {
-    val dark = isSystemInDarkTheme()
+fun PomoTheme(mode: ThemeMode, inverted: Boolean = false, content: @Composable () -> Unit) {
+    val dark = isSystemInDarkTheme() != inverted
     val scheme = when {
         mode == ThemeMode.MONO && dark -> DarkColors
         mode == ThemeMode.MONO -> LightColors

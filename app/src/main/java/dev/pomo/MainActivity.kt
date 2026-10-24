@@ -64,9 +64,20 @@ class MainActivity : ComponentActivity() {
         }
         setContent {
             var mode by remember { mutableStateOf(Timer.themeMode(this)) }
-            PomoTheme(mode) {
+            // The phase is real state: it moves finished phases along, and anything that depends on
+            // it (which screen, the palette) recomposes when it changes, from here, the watch or an alarm.
+            var phase by remember { mutableStateOf(Timer.phase(this)) }
+            LaunchedEffect(Unit) {
+                while (true) {
+                    Timer.settle(this@MainActivity)
+                    phase = Timer.phase(this@MainActivity)
+                    delay(500)
+                }
+            }
+            // A finished focus session inverts the palette until the user taps.
+            PomoTheme(mode, inverted = phase == Phase.DONE) {
                 Surface(Modifier.fillMaxSize()) {
-                    App(mode, onMode = { mode = it; Timer.setThemeMode(this, it) })
+                    App(mode, phase, onMode = { mode = it; Timer.setThemeMode(this, it) })
                 }
             }
         }
@@ -78,15 +89,13 @@ private fun listenerEnabled(c: Context) =
         ?.contains(c.packageName) == true
 
 @Composable
-private fun App(mode: ThemeMode, onMode: (ThemeMode) -> Unit) {
+private fun App(mode: ThemeMode, phase: Phase, onMode: (ThemeMode) -> Unit) {
     val c = LocalContext.current
-    rememberNow() // keeps `phase` below fresh
-    val phase = Timer.phase(c)
     var screen by remember { mutableStateOf<Screen>(Screen.Home) }
-    val full = screen == Screen.Home && phase == Phase.FOCUS && Timer.fullscreenFocus(c)
+    val full = screen == Screen.Home && (phase == Phase.FOCUS || phase == Phase.DONE) && Timer.fullscreenFocus(c)
     when {
         full -> {
-            BackHandler { } // the only way out is "Give up" or the end of the session
+            BackHandler { } // the only way out is "Give up", or tapping through the end of the session
             FullscreenScreen()
         }
         screen == Screen.Apps -> {
@@ -278,13 +287,30 @@ private fun PhaseButton(phase: Phase) {
         Phase.IDLE -> Button(onClick = { Timer.start(c) }) { Text("Start focus") }
         Phase.FOCUS -> OutlinedButton(onClick = { Timer.stop(c) }) { Text("Give up") }
         Phase.BREAK -> OutlinedButton(onClick = { Timer.stop(c) }) { Text("Skip break") }
+        Phase.DONE -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Button(onClick = { Timer.startBreak(c) }) { Text("Start ${Timer.currentBreakMinutes(c)} min break") }
+            TextButton(onClick = { Timer.stop(c) }) { Text("Done") }
+        }
     }
+}
+
+/** mm:ss on the clock; "+mm:ss" counting up once a focus session is over. */
+private fun clockText(c: Context, phase: Phase, now: Long, idleMinutes: Int): String {
+    val ms = when (phase) {
+        Phase.IDLE -> idleMinutes * 60_000L
+        Phase.DONE -> (now - Timer.endAt(c)).coerceAtLeast(0)
+        else -> (Timer.endAt(c) - now).coerceAtLeast(0)
+    }
+    // The countdown rounds up so it never shows 00:00 early; the overtime counter rounds down.
+    val secs = if (phase == Phase.DONE) ms / 1000 else (ms + 999) / 1000
+    return (if (phase == Phase.DONE) "+" else "") + "%02d:%02d".format(secs / 60, secs % 60)
 }
 
 private fun phaseLabel(c: Context, phase: Phase) = when (phase) {
     Phase.IDLE -> "Ready"
     Phase.FOCUS -> "Focus · ${Timer.currentCategory(c).ifEmpty { "Uncategorized" }}"
     Phase.BREAK -> "Break"
+    Phase.DONE -> "Focus complete · ${Timer.currentCategory(c).ifEmpty { "Uncategorized" }}"
 }
 
 /**
@@ -311,11 +337,6 @@ private fun FullscreenScreen() {
         }
     }
     val phase = Timer.phase(c)
-    val remaining = when (phase) {
-        Phase.IDLE -> Timer.minutes(c) * 60_000L
-        else -> (Timer.endAt(c) - now).coerceAtLeast(0)
-    }
-    val secs = (remaining + 999) / 1000
     Column(
         Modifier.fillMaxSize().padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -323,7 +344,7 @@ private fun FullscreenScreen() {
     ) {
         Text(phaseLabel(c, phase), style = MaterialTheme.typography.titleLarge)
         Spacer(Modifier.height(16.dp))
-        TimerRing(Timer.progress(c, now), 300.dp, "%02d:%02d".format(secs / 60, secs % 60), 80.sp)
+        TimerRing(Timer.progress(c, now), 300.dp, clockText(c, phase, now, Timer.minutes(c)), 80.sp)
         Spacer(Modifier.height(24.dp))
         PhaseButton(phase)
     }
@@ -341,12 +362,7 @@ private fun HomeScreen(onSettings: () -> Unit) {
     var adding by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf(false) }
     val phase = Timer.phase(c)
-    val remaining = when (phase) {
-        Phase.IDLE -> minutes * 60_000L
-        else -> (Timer.endAt(c) - now).coerceAtLeast(0)
-    }
     val stats = remember(phase) { History.stats(c) }
-    val secs = (remaining + 999) / 1000
 
     Column(
         Modifier.fillMaxSize().padding(24.dp).systemBarsPadding(),
@@ -372,7 +388,7 @@ private fun HomeScreen(onSettings: () -> Unit) {
         Spacer(Modifier.weight(1f))
         Text(phaseLabel(c, phase), style = MaterialTheme.typography.titleMedium)
         Spacer(Modifier.height(12.dp))
-        TimerRing(Timer.progress(c, now), 240.dp, "%02d:%02d".format(secs / 60, secs % 60), 60.sp)
+        TimerRing(Timer.progress(c, now), 240.dp, clockText(c, phase, now, minutes), 60.sp)
         Spacer(Modifier.height(8.dp))
         if (phase == Phase.IDLE) {
             Stepper("Focus", minutes, Timer.MIN_MINUTES, Timer.MAX_MINUTES) {
