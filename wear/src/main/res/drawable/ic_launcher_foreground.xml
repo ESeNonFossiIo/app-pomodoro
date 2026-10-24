@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group android:translateY="-5">
+    <!-- tomato body, dimpled at the top -->
+    <path
+        android:fillColor="#000000"
+        android:pathData="M54,41C46,34 29,38 27,57C25,75 40,86 54,86C68,86 83,75 81,57C79,38 62,34 54,41Z" />
+    <!-- highlight -->
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="2.6"
+        android:strokeLineCap="round"
+        android:pathData="M33,63Q33,73 40,79" />
+    <!-- leaves -->
+    <path
+        android:fillColor="#000000"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.8"
+        android:strokeLineJoin="round"
+        android:pathData="M54,41Q43,33 27,43Q43,48 54,41Z" />
+    <path
+        android:fillColor="#000000"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.8"
+        android:strokeLineJoin="round"
+        android:pathData="M54,41Q65,33 81,43Q65,48 54,41Z" />
+    <path
+        android:fillColor="#000000"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.8"
+        android:strokeLineJoin="round"
+        android:pathData="M54,41Q41,45 35,60Q49,55 54,41Z" />
+    <path
+        android:fillColor="#000000"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.8"
+        android:strokeLineJoin="round"
+        android:pathData="M54,41Q67,45 73,60Q59,55 54,41Z" />
+    </group>
+</vector>
