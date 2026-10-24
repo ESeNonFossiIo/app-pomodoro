@@ -6,3 +6,5 @@ local.properties
 *.apk
 *.jks
 env.mk
+logcat_*.txt
+.kotlin/
