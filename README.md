@@ -9,6 +9,22 @@ Minimal Android pomodoro timer that silences notifications while you focus.
 - Records: completed sessions are stored locally (SQLite). Home shows today, streak,
   total and the last 7 days. Giving up early does not count.
 
+## Screenshots
+
+Phone (sample data):
+
+| Home | Focus | Focus complete | Stats | Menu |
+|:---:|:---:|:---:|:---:|:---:|
+| <img src="docs/screenshots/home.png" width="160" alt="Home"> | <img src="docs/screenshots/focus.png" width="160" alt="Focus session"> | <img src="docs/screenshots/done.png" width="160" alt="Focus complete"> | <img src="docs/screenshots/stats.png" width="160" alt="Stats"> | <img src="docs/screenshots/menu.png" width="160" alt="Menu"> |
+
+When a focus session ends the screen inverts and the timer keeps counting up (`+mm:ss`) until you tap.
+
+Watch (Wear OS):
+
+| Ready | Focus | Focus complete |
+|:---:|:---:|:---:|
+| <img src="docs/screenshots/watch-idle.png" width="130" alt="Watch, ready"> | <img src="docs/screenshots/watch-focus.png" width="130" alt="Watch, focus"> | <img src="docs/screenshots/watch-done.png" width="130" alt="Watch, focus complete"> |
+
 ## Install (no store)
 
 1. Push to GitHub. The `debug` workflow produces a `pomodoro-debug` artifact containing `pomodoro-<version>-debug.apk`. For a signed release, push a `v<version>` tag: the `release` workflow publishes `pomodoro-<version>-release.apk` as a GitHub Release.
