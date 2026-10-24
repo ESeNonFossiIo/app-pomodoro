@@ -1,6 +1,7 @@
 name: debug
 on:
   push:
+    branches: ["**"]
   workflow_dispatch:
 jobs:
   apk:
@@ -18,4 +19,6 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: pomodoro-debug
-          path: app/build/outputs/apk/debug/*.apk
+          path: |
+            app/build/outputs/apk/debug/*.apk
+            wear/build/outputs/apk/debug/*.apk

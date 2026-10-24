@@ -31,12 +31,20 @@ jobs:
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
         run: gradle assembleRelease
-      - name: Verify APK version
+      - name: Verify APK versions and signing key
+        env:
+          RELEASE_CERT_SHA256: ${{ vars.RELEASE_CERT_SHA256 }}
         run: |
-          APK=$(ls app/build/outputs/apk/release/*.apk)
-          AAPT2=$(ls "$ANDROID_HOME"/build-tools/*/aapt2 | sort -V | tail -n1)
-          "$AAPT2" dump badging "$APK" | grep -q "versionName='${GITHUB_REF_NAME#v}'" \
-            || { echo "$APK does not contain version ${GITHUB_REF_NAME#v}"; exit 1; }
+          [ -n "$RELEASE_CERT_SHA256" ] || { echo "Repository variable RELEASE_CERT_SHA256 is not set"; exit 1; }
+          TOOLS=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -n1)
+          for MODULE in app wear; do
+            [ "$(ls $MODULE/build/outputs/apk/release/*.apk | wc -l)" = 1 ] || { echo "Expected exactly one release APK in $MODULE"; exit 1; }
+            APK=$(ls $MODULE/build/outputs/apk/release/*.apk)
+            "$TOOLS/aapt2" dump badging "$APK" | grep -q "versionName='${GITHUB_REF_NAME#v}'" \
+              || { echo "$APK does not contain version ${GITHUB_REF_NAME#v}"; exit 1; }
+            CERT=$("$TOOLS/apksigner" verify --print-certs "$APK" | sed -n 's/.*certificate SHA-256 digest: //p')
+            [ "$CERT" = "$RELEASE_CERT_SHA256" ] || { echo "$APK is signed with $CERT, expected $RELEASE_CERT_SHA256"; exit 1; }
+          done
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -46,5 +54,8 @@ jobs:
             echo "Release $GITHUB_REF_NAME already exists, nothing to do."
             exit 0
           fi
-          gh release create "$GITHUB_REF_NAME" app/build/outputs/apk/release/*.apk \
+          mkdir dist
+          cp app/build/outputs/apk/release/*.apk wear/build/outputs/apk/release/*.apk dist/
+          (cd dist && sha256sum *.apk > SHA256SUMS)
+          gh release create "$GITHUB_REF_NAME" dist/* \
             --title "Pomodoro $GITHUB_REF_NAME" --generate-notes
