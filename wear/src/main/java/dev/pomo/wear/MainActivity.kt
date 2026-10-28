@@ -34,6 +34,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.wear.ambient.AmbientLifecycleObserver
 import androidx.wear.compose.material.Chip
 import androidx.wear.compose.material.ChipDefaults
 import androidx.wear.compose.material.MaterialTheme
@@ -71,9 +72,19 @@ private fun DataMap.toState() = PomoState(
 )
 
 class MainActivity : ComponentActivity() {
+    private var ambient by mutableStateOf(false)
+    private var tick by mutableLongStateOf(0L)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent { MaterialTheme { Watch() } }
+        // Supporting ambient mode is what keeps the app on screen (dimmed) instead of
+        // being sent back to the watch face a few seconds after the wrist is lowered.
+        lifecycle.addObserver(AmbientLifecycleObserver(this, mainExecutor, object : AmbientLifecycleObserver.AmbientLifecycleCallback {
+            override fun onEnterAmbient(ambientDetails: AmbientLifecycleObserver.AmbientDetails) { ambient = true }
+            override fun onExitAmbient() { ambient = false }
+            override fun onUpdateAmbient() { tick = System.currentTimeMillis() }
+        }))
+        setContent { MaterialTheme { Watch(ambient, tick) } }
     }
 }
 
@@ -82,7 +93,7 @@ private fun send(c: Context, nodeIds: Set<String>, path: String) {
 }
 
 @Composable
-private fun Watch() {
+private fun Watch(ambient: Boolean, tick: Long) {
     val c = LocalContext.current
     var state by remember { mutableStateOf<PomoState?>(null) }
     var phoneNodes by remember { mutableStateOf<Set<String>>(emptySet()) }
@@ -123,6 +134,8 @@ private fun Watch() {
     }
     // Every time the phone (re)appears, ask it for fresh state.
     LaunchedEffect(phoneNodes) { if (connected) send(c, phoneNodes, SYNC) }
+    // Ambient updates arrive about once a minute while the loop below is throttled.
+    LaunchedEffect(tick) { now = System.currentTimeMillis() }
     LaunchedEffect(Unit) {
         while (true) {
             now = System.currentTimeMillis()
@@ -149,12 +162,17 @@ private fun Watch() {
         else -> 0f
     }
     // A finished focus session inverts the palette until you tap.
-    val bg = if (done) Color.White else Color.Black
-    val fg = if (done) Color.Black else Color.White
+    // Ambient stays black with dim content, to save power and avoid burn-in.
+    val bg = if (done && !ambient) Color.White else Color.Black
+    val fg = when {
+        ambient -> Color(0xFFBBBBBB)
+        done -> Color.Black
+        else -> Color.White
+    }
 
     Box(Modifier.fillMaxSize().background(bg), contentAlignment = Alignment.Center) {
         // The ring runs around the whole bezel.
-        BezelRing(progress, dim = !connected, ringColor = fg, trackColor = if (done) Color(0xFFDDDDDD) else MaterialTheme.colors.surface)
+        BezelRing(progress, dim = !connected, ringColor = fg, trackColor = if (ambient) Color(0xFF222222) else if (done) Color(0xFFDDDDDD) else MaterialTheme.colors.surface)
 
         Column(
             Modifier.width(120.dp),
@@ -183,7 +201,7 @@ private fun Watch() {
                         fontWeight = FontWeight.Light,
                         color = if (connected) fg else fg.copy(alpha = 0.5f),
                     )
-                    Chip(
+                    if (!ambient) Chip(
                         onClick = {
                             send(c, phoneNodes, when (phase) { "IDLE" -> START; "DONE" -> BREAK; else -> STOP })
                         },
