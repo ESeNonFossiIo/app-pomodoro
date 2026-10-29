@@ -1,8 +1,10 @@
 package dev.pomo.wear
 
+import android.app.Activity
 import android.content.Context
 import android.net.Uri
 import android.os.Bundle
+import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.Canvas
@@ -147,6 +149,13 @@ private fun Watch(ambient: Boolean, tick: Long) {
     val phase = s?.phase ?: "IDLE"
     val done = phase == "DONE"
     val running = phase == "FOCUS" || phase == "BREAK"
+    // Without Always-on display the screen would time out and drop back to the watch face,
+    // so hold it on while the app is open.
+    DisposableEffect(Unit) {
+        val window = (c as? Activity)?.window
+        window?.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        onDispose { window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) }
+    }
     // DONE counts up from the moment the focus ended; the others count down.
     val ms = when {
         s == null -> 0L
