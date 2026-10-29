@@ -73,7 +73,8 @@ won't update over it. To keep your history, open **Menu > Stats > Export CSV** b
 The watch app works with Wear OS 3 or newer (Pixel Watch, Galaxy Watch 4 and later, and others). It needs the
 phone app, and both devices need Google Play services. It shows the timer and tag from your phone and has
 **Start**, **Give up** and **Break** buttons. If the phone is out of reach, the watch says so and disables the
-buttons.
+buttons. The screen stays on while the app is open, so the timer doesn't drop back to the watch face; close
+the app to let the watch sleep again. With Always-on display turned on, the timer is shown dimmed instead.
 
 Watch apps can't be installed from a file on the watch itself, so you need a computer with
 [adb](https://developer.android.com/tools/releases/platform-tools):
